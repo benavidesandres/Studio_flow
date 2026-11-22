@@ -24,9 +24,26 @@ public class RegisterRequest {
     @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
     private String password;
 
-    @NotBlank(message = "El nombre completo es obligatorio")
+    private String name;
+
     private String fullName;
 
     @NotNull(message = "El rol es obligatorio (PRODUCER, DIRECTOR, CREW, ACTOR)")
     private Role role;
+
+    private String phone;
+
+    private String avatarUrl;
+
+    private String characterName;
+
+    public String resolveName() {
+        if (name != null && !name.isBlank()) {
+            return name.trim();
+        }
+        if (fullName != null && !fullName.isBlank()) {
+            return fullName.trim();
+        }
+        return "";
+    }
 }

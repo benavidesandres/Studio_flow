@@ -1,5 +1,6 @@
 package com.studioflow.dto.production;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.studioflow.model.Production;
 import com.studioflow.model.Scene;
 import com.studioflow.model.SceneStatus;
@@ -16,22 +17,26 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ProductionResponse {
 
     private Long id;
     private String title;
     private String description;
+    private LocalDate startDate;
+    private LocalDate endDate;
     private BigDecimal totalBudget;
     private BigDecimal spentBudget;
     private BigDecimal remainingBudget;
     private Integer progressPercentage;
-    private LocalDate startDate;
-    private LocalDate endDate;
     private int totalScenes;
     private int completedScenes;
     private int readyScenes;
     private int delayedScenes;
     private int problemScenes;
+    private String status;
+    private String directorName;
+    private String posterUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -61,17 +66,20 @@ public class ProductionResponse {
                 .id(production.getId())
                 .title(production.getTitle())
                 .description(production.getDescription())
+                .startDate(production.getStartDate())
+                .endDate(production.getEndDate())
                 .totalBudget(total)
                 .spentBudget(spent)
                 .remainingBudget(remaining)
                 .progressPercentage(production.getProgressPercentage() != null ? production.getProgressPercentage() : 0)
-                .startDate(production.getStartDate())
-                .endDate(production.getEndDate())
                 .totalScenes(totalScenes)
                 .completedScenes(completed)
                 .readyScenes(ready)
                 .delayedScenes(delayed)
                 .problemScenes(problem)
+                .status(production.getStatus() != null ? production.getStatus() : "FILMING")
+                .directorName(production.getDirectorName())
+                .posterUrl(production.getPosterUrl())
                 .createdAt(production.getCreatedAt())
                 .updatedAt(production.getUpdatedAt())
                 .build();

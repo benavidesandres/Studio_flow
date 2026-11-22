@@ -23,10 +23,16 @@ public class ProductionRequest {
     private String description;
 
     @NotNull(message = "El presupuesto total es obligatorio")
-    @DecimalMin(value = "0.0", inclusive = true, message = "El presupuesto debe ser mayor o igual a 0")
+    @DecimalMin(value = "0.0", inclusive = true, message = "El presupuesto no puede ser negativo")
     private BigDecimal totalBudget;
 
     private LocalDate startDate;
 
     private LocalDate endDate;
+
+    private String status;
+
+    private String directorName;
+
+    private String posterUrl;
 }
