@@ -1,0 +1,22 @@
+# Blueprint de Render: en el panel, New + > Blueprint > este repositorio.
+# Los valores con sync: false se piden al crear el servicio y nunca se guardan en git.
+services:
+  - type: web
+    name: studioflow-backend
+    runtime: docker
+    plan: free
+    region: oregon # misma región que la base de datos de Supabase (us-west-2)
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: SUPABASE_DB_URL
+        value: jdbc:postgresql://aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require
+      - key: SUPABASE_DB_USER
+        value: postgres.mnuutpqvemaiwjnlvmcp
+      - key: SUPABASE_DB_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true # uno nuevo y aleatorio; el de application.yml es público
+      - key: CORS_ALLOWED_ORIGINS
+        value: app://studioflow,http://localhost:5173
+      - key: MINIMUM_TRAVEL_MINUTES
+        value: "45"

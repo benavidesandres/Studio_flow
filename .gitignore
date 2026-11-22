@@ -36,3 +36,5 @@ out/
 .env
 .env.local
 application-local.yml
+.env.*
+!.env.example
