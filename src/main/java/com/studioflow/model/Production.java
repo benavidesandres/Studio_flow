@@ -48,6 +48,16 @@ public class Production {
     @Column(name = "end_date")
     private LocalDate endDate;
 
+    @Column(length = 50)
+    @Builder.Default
+    private String status = "FILMING";
+
+    @Column(name = "director_name")
+    private String directorName;
+
+    @Column(name = "poster_url", length = 500)
+    private String posterUrl;
+
     @OneToMany(mappedBy = "production", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Scene> scenes = new ArrayList<>();
