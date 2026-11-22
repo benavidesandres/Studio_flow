@@ -8,9 +8,9 @@ spring:
     name: studioflow-backend
 
   datasource:
-    url: ${SUPABASE_DB_URL:jdbc:postgresql://localhost:5432/studioflow}
+    url: ${SUPABASE_DB_URL:jdbc:postgresql://db.mnuutpqvemaiwjnlvmcp.supabase.co:5432/postgres?sslmode=require}
     username: ${SUPABASE_DB_USER:postgres}
-    password: ${SUPABASE_DB_PASSWORD:postgres}
+    password: ${SUPABASE_DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -30,10 +30,19 @@ spring:
           lob:
             non_contextual_creation: true
 
-# Security & JWT Configuration
+  sql:
+    init:
+      mode: ${SQL_INIT_MODE:never}
+
+# StudioFlow Configuration
 studioflow:
   jwt:
     secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
   conflict:
-    minimum-travel-minutes: ${MINIMUM_TRAVEL_MINUTES:45} # Buffer time required between different locations
+    minimum-travel-minutes: ${MINIMUM_TRAVEL_MINUTES:45} # Buffer time between locations in minutes
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173}
+  supabase:
+    project-url: ${SUPABASE_PROJECT_URL:https://mnuutpqvemaiwjnlvmcp.supabase.co}
+    publishable-key: ${SUPABASE_PUBLISHABLE_KEY:sb_publishable_F9KDkj_b8UKllVjvs0_A0w_C35vtT1Q}
