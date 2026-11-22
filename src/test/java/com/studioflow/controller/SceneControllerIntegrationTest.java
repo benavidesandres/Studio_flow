@@ -118,7 +118,7 @@ class SceneControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(sceneRequest)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id", notNullValue()))
-                .andExpect(jsonPath("$.sceneNumber", is(1)))
+                .andExpect(jsonPath("$.sceneNumber", is("1")))
                 .andExpect(jsonPath("$.title", is("Aterrizaje en planeta Miller")))
                 .andExpect(jsonPath("$.actors", hasSize(1)));
     }

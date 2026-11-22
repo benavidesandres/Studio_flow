@@ -9,6 +9,9 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: false
+  sql:
+    init:
+      mode: never
 
 studioflow:
   jwt:
@@ -16,3 +19,5 @@ studioflow:
     expiration-ms: 3600000
   conflict:
     minimum-travel-minutes: 45
+  cors:
+    allowed-origins: http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173
