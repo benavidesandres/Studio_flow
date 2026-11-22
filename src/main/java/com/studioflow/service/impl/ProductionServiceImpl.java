@@ -36,6 +36,9 @@ public class ProductionServiceImpl implements ProductionService {
                 .progressPercentage(0)
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
+                .status(request.getStatus() != null && !request.getStatus().isBlank() ? request.getStatus().trim() : "FILMING")
+                .directorName(request.getDirectorName())
+                .posterUrl(request.getPosterUrl())
                 .build();
 
         Production saved = productionRepository.save(production);
@@ -70,6 +73,15 @@ public class ProductionServiceImpl implements ProductionService {
         }
         production.setStartDate(request.getStartDate());
         production.setEndDate(request.getEndDate());
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            production.setStatus(request.getStatus().trim());
+        }
+        if (request.getDirectorName() != null) {
+            production.setDirectorName(request.getDirectorName().trim());
+        }
+        if (request.getPosterUrl() != null) {
+            production.setPosterUrl(request.getPosterUrl().trim());
+        }
 
         Production updated = productionRepository.save(production);
         return ProductionResponse.fromEntity(updated);

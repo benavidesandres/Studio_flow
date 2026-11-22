@@ -4,6 +4,7 @@ import com.studioflow.dto.auth.AuthResponse;
 import com.studioflow.dto.auth.LoginRequest;
 import com.studioflow.dto.auth.RegisterRequest;
 import com.studioflow.dto.user.UserResponse;
+import com.studioflow.exception.BadRequestException;
 import com.studioflow.exception.EmailAlreadyExistsException;
 import com.studioflow.exception.ResourceNotFoundException;
 import com.studioflow.model.Role;
@@ -41,11 +42,19 @@ public class AuthServiceImpl implements AuthService {
             throw new EmailAlreadyExistsException(request.getEmail());
         }
 
+        String displayName = request.resolveName();
+        if (displayName.isBlank()) {
+            throw new BadRequestException("El nombre del usuario es obligatorio");
+        }
+
         User user = User.builder()
                 .email(request.getEmail().trim().toLowerCase())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .fullName(request.getFullName().trim())
+                .fullName(displayName)
                 .role(request.getRole())
+                .phone(request.getPhone())
+                .avatarUrl(request.getAvatarUrl())
+                .characterName(request.getCharacterName())
                 .build();
 
         User savedUser = userRepository.save(user);
@@ -56,8 +65,11 @@ public class AuthServiceImpl implements AuthService {
                 savedUser.getRole().name()
         );
 
+        UserResponse userResponse = UserResponse.fromEntity(savedUser);
+
         return AuthResponse.builder()
                 .token(token)
+                .user(userResponse)
                 .tokenType("Bearer")
                 .userId(savedUser.getId())
                 .email(savedUser.getEmail())
@@ -88,8 +100,11 @@ public class AuthServiceImpl implements AuthService {
                 user.getRole().name()
         );
 
+        UserResponse userResponse = UserResponse.fromEntity(user);
+
         return AuthResponse.builder()
                 .token(token)
+                .user(userResponse)
                 .tokenType("Bearer")
                 .userId(user.getId())
                 .email(user.getEmail())

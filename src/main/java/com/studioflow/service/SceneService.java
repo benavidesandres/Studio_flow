@@ -5,6 +5,7 @@ import com.studioflow.dto.scene.DailyScheduleResponse;
 import com.studioflow.dto.scene.SceneRequest;
 import com.studioflow.dto.scene.SceneResponse;
 import com.studioflow.dto.scene.SceneStatusUpdateRequest;
+import com.studioflow.model.SceneStatus;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -20,6 +21,8 @@ public interface SceneService {
     SceneResponse updateScene(Long id, SceneRequest request);
 
     SceneResponse updateSceneStatus(Long id, SceneStatusUpdateRequest request);
+
+    SceneResponse updateSceneStatus(Long id, SceneStatus status, String notes);
 
     void deleteScene(Long id);
 

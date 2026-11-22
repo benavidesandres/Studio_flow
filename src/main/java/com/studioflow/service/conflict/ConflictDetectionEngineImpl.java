@@ -19,7 +19,6 @@ import java.util.*;
 public class ConflictDetectionEngineImpl implements ConflictDetectionEngine {
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     @Value("${studioflow.conflict.minimum-travel-minutes:45}")
     private int minimumTravelMinutes;
@@ -32,7 +31,7 @@ public class ConflictDetectionEngineImpl implements ConflictDetectionEngine {
 
         List<ConflictDetail> conflicts = new ArrayList<>();
         LocalDateTime candStart = candidateScene.getScheduledTime();
-        LocalDateTime candEnd = candidateScene.getEndTime();
+        LocalDateTime candEnd = candidateScene.getEndDateTime();
 
         if (candStart == null || candEnd == null) {
             return Collections.emptyList();
@@ -45,7 +44,7 @@ public class ConflictDetectionEngineImpl implements ConflictDetectionEngine {
             }
 
             LocalDateTime existStart = existing.getScheduledTime();
-            LocalDateTime existEnd = existing.getEndTime();
+            LocalDateTime existEnd = existing.getEndDateTime();
 
             if (existStart == null || existEnd == null) {
                 continue;
@@ -58,7 +57,11 @@ public class ConflictDetectionEngineImpl implements ConflictDetectionEngine {
             }
 
             for (User actor : commonActors) {
-                // 1. Regla: Solapamiento simultáneo de actor
+                String actorName = actor.getFullName() != null ? actor.getFullName() : actor.getName();
+                String existSceneNum = existing.getSceneNumber() != null ? existing.getSceneNumber() : "SC-" + existing.getId();
+                String existTitleDisplay = existSceneNum + ": " + existing.getTitle();
+
+                // 1. Regla: Solapamiento simultáneo de actor (startA < endB && endA > startB)
                 boolean isOverlapping = candStart.isBefore(existEnd) && existStart.isBefore(candEnd);
 
                 if (isOverlapping) {
@@ -68,23 +71,20 @@ public class ConflictDetectionEngineImpl implements ConflictDetectionEngine {
                     );
 
                     String message = String.format(
-                            "CONFLICTO CRÍTICO (SOLAPAMIENTO): El actor %s está asignado a la Escena #%d ('%s') de %s a %s, lo cual se solapa con el horario programado (%s a %s).",
-                            actor.getFullName(),
-                            existing.getSceneNumber(),
-                            existing.getTitle(),
+                            "El actor %s ya está citado en la escena %s (%s - %s). SOLAPAMIENTO de horario detectado.",
+                            actorName,
+                            existSceneNum,
                             existStart.format(TIME_FORMATTER),
-                            existEnd.format(TIME_FORMATTER),
-                            candStart.format(TIME_FORMATTER),
-                            candEnd.format(TIME_FORMATTER)
+                            existEnd.format(TIME_FORMATTER)
                     );
 
                     conflicts.add(ConflictDetail.builder()
                             .type(ConflictType.ACTOR_OVERLAP)
                             .actorId(actor.getId())
-                            .actorName(actor.getFullName())
+                            .actorName(actorName)
                             .conflictingSceneId(existing.getId())
-                            .conflictingSceneNumber(existing.getSceneNumber())
-                            .conflictingSceneTitle(existing.getTitle())
+                            .conflictingSceneNumber(existSceneNum)
+                            .conflictingSceneTitle(existTitleDisplay)
                             .conflictingScheduledTime(existStart)
                             .conflictingDurationMinutes(existing.getDurationMinutes())
                             .conflictingLocation(existing.getLocation())
@@ -95,7 +95,7 @@ public class ConflictDetectionEngineImpl implements ConflictDetectionEngine {
                             .build());
 
                 } else if (candStart.toLocalDate().equals(existStart.toLocalDate())) {
-                    // 2. Regla: Conflicto de Traslado/Locación en el mismo día
+                    // 2. Regla: Conflicto de Traslado/Locación en el mismo día (< 45 minutos de margen)
                     boolean differentLocation = !normalizeLocation(candidateScene.getLocation())
                             .equalsIgnoreCase(normalizeLocation(existing.getLocation()));
 
@@ -110,24 +110,23 @@ public class ConflictDetectionEngineImpl implements ConflictDetectionEngine {
                         }
 
                         if (gapMinutes >= 0 && gapMinutes < minimumTravelMinutes) {
+                            String candidateSceneNum = candidateScene.getSceneNumber() != null ? candidateScene.getSceneNumber() : "nueva";
                             String message = String.format(
-                                    "WARNING_LOCATION_CONFLICT: El actor %s tiene solo %d minutos de intervalo entre la Escena #%d en '%s' y la Escena #%d en '%s' (el tiempo mínimo requerido de traslado es de %d minutos).",
-                                    actor.getFullName(),
+                                    "WARNING_LOCATION_CONFLICT: El actor %s tiene solo %d minutos de margen entre la escena %s y la escena %s en distinta locación (mínimo requerido: %d min).",
+                                    actorName,
                                     gapMinutes,
-                                    existing.getSceneNumber(),
-                                    existing.getLocation(),
-                                    candidateScene.getSceneNumber() != null ? candidateScene.getSceneNumber() : 0,
-                                    candidateScene.getLocation(),
+                                    existSceneNum,
+                                    candidateSceneNum,
                                     minimumTravelMinutes
                             );
 
                             conflicts.add(ConflictDetail.builder()
                                     .type(ConflictType.WARNING_LOCATION_CONFLICT)
                                     .actorId(actor.getId())
-                                    .actorName(actor.getFullName())
+                                    .actorName(actorName)
                                     .conflictingSceneId(existing.getId())
-                                    .conflictingSceneNumber(existing.getSceneNumber())
-                                    .conflictingSceneTitle(existing.getTitle())
+                                    .conflictingSceneNumber(existSceneNum)
+                                    .conflictingSceneTitle(existTitleDisplay)
                                     .conflictingScheduledTime(existStart)
                                     .conflictingDurationMinutes(existing.getDurationMinutes())
                                     .conflictingLocation(existing.getLocation())
@@ -160,9 +159,9 @@ public class ConflictDetectionEngineImpl implements ConflictDetectionEngine {
                 .anyMatch(c -> c.getType() == ConflictType.ACTOR_OVERLAP);
 
         if (hasOverlap) {
-            log.warn("Rechazando guardado de escena por solapamiento de actor: {} conflictos detectados", conflicts.size());
+            log.warn("Rechazando guardado de escena por solapamiento de actor: {} conflicto(s) detectado(s)", conflicts.size());
             throw new ScheduleConflictException(
-                    "Conflicto de Solapamiento de Actor: Un mismo actor no puede estar citado en dos escenas simultáneas.",
+                    "Conflicto crítico de Solapamiento de Actor.",
                     conflicts
             );
         }
@@ -171,9 +170,9 @@ public class ConflictDetectionEngineImpl implements ConflictDetectionEngine {
                 .anyMatch(c -> c.getType() == ConflictType.WARNING_LOCATION_CONFLICT);
 
         if (hasLocationWarning && !allowLocationWarnings) {
-            log.warn("Rechazando guardado de escena por conflicto de traslado entre locaciones");
+            log.warn("Rechazando guardado de escena por margen insuficiente entre locaciones (allowWarnings=false)");
             throw new ScheduleConflictException(
-                    "WARNING_LOCATION_CONFLICT: Margen de tiempo insuficiente para el traslado del actor entre locaciones distintas.",
+                    "Advertencia de Traslado (WARNING_LOCATION_CONFLICT): Margen inferior a 45 minutos entre locaciones.",
                     conflicts
             );
         }

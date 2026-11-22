@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -44,29 +45,36 @@ public class SceneServiceImpl implements SceneService {
     @Override
     @Transactional
     public SceneResponse createScene(Long productionId, SceneRequest request) {
-        log.info("Creando escena #{} para producción id: {}", request.getSceneNumber(), productionId);
+        String sceneNum = request.resolveSceneNumber();
+        log.info("Creando escena '{}' para producción id: {}", sceneNum, productionId);
 
         Production production = productionRepository.findById(productionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producción", "id", productionId));
 
         Set<User> actors = resolveActors(request.getActorIds());
 
+        TimeCalculation timeCalc = calculateTimeParameters(request);
+
         Scene candidateScene = Scene.builder()
                 .production(production)
-                .sceneNumber(request.getSceneNumber())
+                .sceneNumber(sceneNum)
                 .title(request.getTitle().trim())
-                .scheduledTime(request.getScheduledTime())
+                .shootDate(timeCalc.shootDate)
+                .startTime(timeCalc.startTime)
+                .endTime(timeCalc.endTime)
+                .scheduledTime(timeCalc.scheduledTime)
+                .durationMinutes(timeCalc.durationMinutes)
                 .status(request.getStatus() != null ? request.getStatus() : SceneStatus.READY)
-                .location(request.getLocation().trim())
+                .location(request.getLocation() != null ? request.getLocation().trim() : "")
                 .cost(request.getCost() != null ? request.getCost() : BigDecimal.ZERO)
-                .durationMinutes(request.getDurationMinutes())
+                .notes(request.getNotes())
                 .actors(actors)
                 .build();
 
-        // Obtener escenas candidatas de los actores y de la producción para evaluar conflictos
+        // Obtener escenas candidatas para evaluar conflictos
         List<Scene> existingScenes = findCandidateScenesForEvaluation(candidateScene, actors, productionId);
 
-        // Ejecutar motor de detección de conflictos
+        // Ejecutar motor de detección de conflictos (lanza 409 ScheduleConflictException si hay conflictos no permitidos)
         List<ConflictDetail> warnings = conflictDetectionEngine.validateAndDetect(
                 candidateScene,
                 existingScenes,
@@ -108,19 +116,27 @@ public class SceneServiceImpl implements SceneService {
                 .orElseThrow(() -> new ResourceNotFoundException("Escena", "id", id));
 
         Set<User> actors = resolveActors(request.getActorIds());
+        TimeCalculation timeCalc = calculateTimeParameters(request);
 
-        // Actualizar datos preliminares en entidad para evaluación
-        scene.setSceneNumber(request.getSceneNumber());
+        scene.setSceneNumber(request.resolveSceneNumber());
         scene.setTitle(request.getTitle().trim());
-        scene.setScheduledTime(request.getScheduledTime());
+        scene.setShootDate(timeCalc.shootDate);
+        scene.setStartTime(timeCalc.startTime);
+        scene.setEndTime(timeCalc.endTime);
+        scene.setScheduledTime(timeCalc.scheduledTime);
+        scene.setDurationMinutes(timeCalc.durationMinutes);
         if (request.getStatus() != null) {
             scene.setStatus(request.getStatus());
         }
-        scene.setLocation(request.getLocation().trim());
+        if (request.getLocation() != null) {
+            scene.setLocation(request.getLocation().trim());
+        }
         if (request.getCost() != null) {
             scene.setCost(request.getCost());
         }
-        scene.setDurationMinutes(request.getDurationMinutes());
+        if (request.getNotes() != null) {
+            scene.setNotes(request.getNotes());
+        }
         scene.setActors(actors);
 
         // Buscar escenas existentes para contraste
@@ -144,11 +160,20 @@ public class SceneServiceImpl implements SceneService {
     @Override
     @Transactional
     public SceneResponse updateSceneStatus(Long id, SceneStatusUpdateRequest request) {
-        log.info("Actualizando estado de escena id: {} a {}", id, request.getStatus());
+        return updateSceneStatus(id, request.getStatus(), request.getNotes());
+    }
+
+    @Override
+    @Transactional
+    public SceneResponse updateSceneStatus(Long id, SceneStatus status, String notes) {
+        log.info("Actualizando estado de escena id: {} a {}", id, status);
         Scene scene = sceneRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Escena", "id", id));
 
-        scene.setStatus(request.getStatus());
+        scene.setStatus(status);
+        if (notes != null && !notes.isBlank()) {
+            scene.setNotes(notes);
+        }
         Scene updatedScene = sceneRepository.save(scene);
 
         productionService.recalculateMetrics(scene.getProduction().getId());
@@ -220,18 +245,22 @@ public class SceneServiceImpl implements SceneService {
     @Transactional(readOnly = true)
     public List<ConflictDetail> validateConflicts(Long productionId, SceneRequest request) {
         Set<User> actors = resolveActors(request.getActorIds());
+        TimeCalculation timeCalc = calculateTimeParameters(request);
 
         Scene candidateScene = Scene.builder()
-                .sceneNumber(request.getSceneNumber())
+                .sceneNumber(request.resolveSceneNumber())
                 .title(request.getTitle())
-                .scheduledTime(request.getScheduledTime())
-                .location(request.getLocation())
-                .durationMinutes(request.getDurationMinutes())
+                .shootDate(timeCalc.shootDate)
+                .startTime(timeCalc.startTime)
+                .endTime(timeCalc.endTime)
+                .scheduledTime(timeCalc.scheduledTime)
+                .location(request.getLocation() != null ? request.getLocation().trim() : "")
+                .durationMinutes(timeCalc.durationMinutes)
                 .actors(actors)
                 .build();
 
         List<Scene> existingScenes = findCandidateScenesForEvaluation(candidateScene, actors, productionId);
-        return conflictDetectionEngine.detectConflicts(candidateScene, existingScenes);
+        return conflictDetectionEngine.validateAndDetect(candidateScene, existingScenes, request.isAllowWarnings());
     }
 
     @Override
@@ -317,4 +346,51 @@ public class SceneServiceImpl implements SceneService {
 
         return new ArrayList<>(candidateSet);
     }
+
+    private TimeCalculation calculateTimeParameters(SceneRequest request) {
+        LocalDate shootDate = request.getShootDate();
+        LocalTime startTime = request.getStartTime();
+        LocalTime endTime = request.getEndTime();
+        LocalDateTime scheduledTime = request.getScheduledTime();
+        Integer durationMinutes = request.getDurationMinutes();
+
+        if (shootDate != null && startTime != null) {
+            scheduledTime = LocalDateTime.of(shootDate, startTime);
+            if (endTime != null) {
+                durationMinutes = (int) Duration.between(startTime, endTime).toMinutes();
+            }
+        } else if (scheduledTime != null) {
+            shootDate = scheduledTime.toLocalDate();
+            startTime = scheduledTime.toLocalTime();
+            if (durationMinutes != null && endTime == null) {
+                endTime = startTime.plusMinutes(durationMinutes);
+            }
+        }
+
+        if (durationMinutes == null || durationMinutes <= 0) {
+            durationMinutes = 60;
+        }
+
+        if (endTime == null && startTime != null) {
+            endTime = startTime.plusMinutes(durationMinutes);
+        }
+
+        if (scheduledTime == null && shootDate != null && startTime != null) {
+            scheduledTime = LocalDateTime.of(shootDate, startTime);
+        }
+
+        if (scheduledTime == null) {
+            throw new BadRequestException("Debe proporcionar scheduledTime o shootDate con startTime");
+        }
+
+        return new TimeCalculation(shootDate, startTime, endTime, scheduledTime, durationMinutes);
+    }
+
+    private record TimeCalculation(
+            LocalDate shootDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            LocalDateTime scheduledTime,
+            Integer durationMinutes
+    ) {}
 }
