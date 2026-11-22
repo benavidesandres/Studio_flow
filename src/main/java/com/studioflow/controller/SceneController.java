@@ -5,6 +5,7 @@ import com.studioflow.dto.scene.SceneRequest;
 import com.studioflow.dto.scene.SceneResponse;
 import com.studioflow.dto.scene.SceneStatusUpdateRequest;
 import com.studioflow.exception.BadRequestException;
+import com.studioflow.model.SceneStatus;
 import com.studioflow.service.SceneService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +31,7 @@ public class SceneController {
     ) {
         Long targetProdId = productionId != null ? productionId : request.getProductionId();
         if (targetProdId == null) {
-            throw new BadRequestException("El id de la producción es obligatorio (por query param o en el cuerpo de la petición)");
+            throw new BadRequestException("El id de la producción es obligatorio (en el query param '?productionId=' o en el cuerpo JSON 'productionId')");
         }
         SceneResponse response = sceneService.createScene(targetProdId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -57,9 +58,24 @@ public class SceneController {
     @PreAuthorize("hasAnyRole('PRODUCER', 'DIRECTOR')")
     public ResponseEntity<SceneResponse> updateSceneStatus(
             @PathVariable Long id,
-            @Valid @RequestBody SceneStatusUpdateRequest request
+            @RequestParam(required = false) SceneStatus status,
+            @RequestBody(required = false) SceneStatusUpdateRequest request
     ) {
-        SceneResponse response = sceneService.updateSceneStatus(id, request);
+        SceneStatus targetStatus = status;
+        String notes = null;
+
+        if (request != null) {
+            if (targetStatus == null) {
+                targetStatus = request.getStatus();
+            }
+            notes = request.getNotes();
+        }
+
+        if (targetStatus == null) {
+            throw new BadRequestException("El parámetro 'status' es obligatorio (como query param '?status=READY' o en el cuerpo de la petición)");
+        }
+
+        SceneResponse response = sceneService.updateSceneStatus(id, targetStatus, notes);
         return ResponseEntity.ok(response);
     }
 

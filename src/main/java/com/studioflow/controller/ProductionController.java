@@ -34,7 +34,7 @@ public class ProductionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('PRODUCER', 'DIRECTOR', 'CREW')")
+    @PreAuthorize("hasAnyRole('PRODUCER', 'DIRECTOR', 'CREW', 'ACTOR')")
     public ResponseEntity<List<ProductionResponse>> getAllProductions() {
         List<ProductionResponse> list = productionService.getAllProductions();
         return ResponseEntity.ok(list);

@@ -12,8 +12,11 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestControllerAdvice
@@ -53,20 +56,24 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ScheduleConflictException.class)
-    public ResponseEntity<ErrorResponse> handleScheduleConflictException(
+    public ResponseEntity<Map<String, Object>> handleScheduleConflictException(
             ScheduleConflictException ex,
             HttpServletRequest request
     ) {
         log.warn("Conflicto de programación detectado: {}", ex.getMessage());
-        ErrorResponse error = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.CONFLICT.value())
-                .error("Schedule Conflict")
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .data(ex.getConflicts())
-                .build();
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", HttpStatus.CONFLICT.value());
+        response.put("message", ex.getMessage());
+        response.put("conflicts", ex.getConflicts());
+        response.put("timestamp", Instant.now().truncatedTo(ChronoUnit.SECONDS).toString());
+
+        // Propiedades auxiliares para trazabilidad y pruebas
+        response.put("error", "Schedule Conflict");
+        response.put("data", ex.getConflicts());
+        response.put("path", request.getRequestURI());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
     @ExceptionHandler(BadRequestException.class)
