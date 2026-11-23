@@ -46,3 +46,10 @@ studioflow:
   supabase:
     project-url: ${SUPABASE_PROJECT_URL:https://mnuutpqvemaiwjnlvmcp.supabase.co}
     publishable-key: ${SUPABASE_PUBLISHABLE_KEY:sb_publishable_F9KDkj_b8UKllVjvs0_A0w_C35vtT1Q}
+  ai:
+    # Desglose de guion con Groq. Sin GROQ_API_KEY el endpoint responde 503 y el resto de la app funciona igual.
+    groq-api-key: ${GROQ_API_KEY:}
+    groq-model: ${GROQ_MODEL:openai/gpt-oss-120b}
+    groq-base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
+    max-script-chars: ${AI_MAX_SCRIPT_CHARS:20000}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:90}

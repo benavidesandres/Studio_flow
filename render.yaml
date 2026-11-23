@@ -20,3 +20,7 @@ services:
         value: app://studioflow,http://localhost:5173
       - key: MINIMUM_TRAVEL_MINUTES
         value: "45"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
